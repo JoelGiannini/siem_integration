@@ -1,0 +1,137 @@
+- name: "Server Info (Distribution/Version/ARQ)"
+  debug:
+    msg: "{{ ansible_distribution }}/{{ ansible_distribution_version }}/({{ ansible_architecture }})"
+
+- name: "Check if host resolve QRadar fqdn: {{ fusion_server_fqdn }}"
+  shell: ping -c 1 -w 2 {{ fusion_server_fqdn }}
+  register: fusion_ping_result
+  ignore_errors: true
+
+- name: "Add fusion host:{{ fusion_server_fqdn }} in /etc/hosts file"
+  blockinfile:
+    path: /etc/hosts
+    block: |
+      {{ fusion_server_ip }} {{ fusion_server_fqdn }}
+    marker: "# {mark} Adding Fusion host"
+  when: fusion_ping_result.rc == 2
+
+- name: "Check TCP conectivity {{ fusion_server_fqdn }}:{{ fusion_port_rhel }}"
+  wait_for:
+    host: "{{ fusion_server_fqdn }}"
+    port: "{{ fusion_port_rhel }}"
+    state: started
+    delay: 0
+    timeout: 1
+  register: fusion_tcp_connection
+
+#- name: "Check UDP conectivity {{ fusion_server_fqdn }}:{{ fusion_port_rhel }}"
+#  shell: nc -vu {{ fusion_server_fqdn }} {{ fusion_port_rhel }}
+#  register: fusion_tcp_connection
+
+- name: "Delete old configuration of fusion in main file (redhat)"
+  ansible.builtin.file:
+    path: "{{ rsyslogd_path }}{{ rsyslog_fusion_file }}"
+    state: absent
+  ignore_errors: true
+  when: ansible_distribution == 'RedHat' and fusion_tcp_connection
+
+- name: "Add Fusion config in syslog (Redhat)"
+  template:
+    src: fusion_rsyslog_rhel.conf.j2
+    dest: "{{ rsyslogd_path }}{{ rsyslog_fusion_file }}"
+  notify:
+  - restart rsyslog
+  when: ansible_distribution == 'RedHat' and fusion_tcp_connection
+
+- name: "Enabling port 51409 in selinux"
+  seport:
+    ports: 51409
+    proto: tcp    
+    setype: syslogd_port_t    
+    state: present
+  notify:
+  - restart rsyslog
+  ignore_errors: true
+  when: (ansible_distribution == 'RedHat' or ansible_distribution == 'CentOS') and (ansible_distribution_major_version == '7' or ansible_distribution_major_version == '8')
+
+- name: "Install audispd-plugins rhel8"
+  ansible.builtin.yum:
+    name: audispd-plugins
+    state: latest
+  when: (ansible_distribution == 'RedHat' or ansible_distribution == 'CentOS') and ansible_distribution_major_version == '8'
+
+- name: "Configure auditd.conf for rhel_7.1 ,2"
+  template:
+    src: auditd.conf_rhel_7.1_7.2.j2
+    dest: "{{ auditd_path }}{{ auditd_file }}"
+  when: (ansible_distribution == 'RedHat' or ansible_distribution == 'CentOS') and (ansible_distribution_version == '7.1' or ansible_distribution_version == '7.2')
+
+
+- name: "Configure auditd.conf for rhel_7.3"
+  template:
+    src: auditd.conf_rhel_7.3.j2
+    dest: "{{ auditd_path }}{{ auditd_file }}"
+  when: (ansible_distribution == 'RedHat' or ansible_distribution == 'CentOS') and ansible_distribution_version == '7.3'
+
+- name: "Configure auditd.conf for rhel_7.4"
+  template:
+    src: auditd.conf_rhel_7.4.j2
+    dest: "{{ auditd_path }}{{ auditd_file }}"
+  when: (ansible_distribution == 'RedHat' or ansible_distribution == 'CentOS') and ansible_distribution_version == '7.4'
+
+- name: "Configure auditd.conf for rhel_7.5 ,6,7,8,9"
+  template:
+    src: auditd.conf_rhel_7.5_7_9.j2
+    dest: "{{ auditd_path }}{{ auditd_file }}"
+  when: (ansible_distribution == 'RedHat' or ansible_distribution == 'CentOS') and (ansible_distribution_version == '7.5' or ansible_distribution_version == '7.6' or ansible_distribution_version == '7.7' or ansible_distribution_version == '7.8' or ansible_distribution_version == '7.9')
+
+- name: "Configure auditd.conf for rhel_8"
+  template:
+    src: auditd.conf_rhel_8.j2
+    dest: "{{ auditd_path }}{{ auditd_file }}"
+  when: (ansible_distribution == 'RedHat' or ansible_distribution == 'CentOS') and ansible_distribution_major_version == '8'
+
+- name: "Configure audit.rules"
+  template:
+    src: audit.rules.j2
+    dest: "{{ auditd_rulesd_path }}{{ auditd_rulesd_file }}"
+  notify:
+  - Enable auditd
+  - Stop auditd
+  - Start auditd
+  when: (ansible_distribution == 'RedHat' or ansible_distribution == 'CentOS') and ansible_distribution_major_version == '7'
+
+- name:  "Configure syslog.conf"
+  template:
+    src: syslog.conf.j2
+    dest: "{{ auditsp_path }}{{ auditsp_file }}"
+  notify:
+  - restart rsyslog
+  when: (ansible_distribution == 'RedHat' or ansible_distribution == 'CentOS') and ansible_distribution_major_version == '7'
+
+- name:  "Configure syslog.conf"
+  template:
+    src: syslog.conf_rhel_8.j2
+    dest: "/etc/audit/plugins.d/{{ auditsp_file }}"
+  notify:
+  - reload daemon
+  - restart rsyslog
+  when: (ansible_distribution == 'RedHat' or ansible_distribution == 'CentOS') and ansible_distribution_major_version == '8'
+
+- name: find local6.none in /etc/rsyslog.conf
+  shell: "grep -i 'local6.none' /etc/rsyslog.conf"
+  register: check_local6
+  ignore_errors: true
+  when: (ansible_distribution == 'RedHat' or ansible_distribution == 'CentOS') and (ansible_distribution_major_version == '7' or ansible_distribution_major_version == '8')
+
+- name: add local6.none in /etc/rsyslog.conf
+  replace:
+    path: /etc/rsyslog.conf
+    regexp: 'cron.none'
+    replace: "cron.none;local6.none"
+  ignore_errors: true
+  notify:
+  - reload daemon
+  - restart rsyslog
+  when: check_local6.stdout == "" and (ansible_distribution == 'RedHat' or ansible_distribution == 'CentOS') and (ansible_distribution_major_version == '7' or ansible_distribution_major_version == '8')
+

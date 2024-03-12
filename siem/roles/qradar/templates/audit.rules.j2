@@ -1,0 +1,141 @@
+# Flush las reglas anteriores al iniciar
+-D
+
+# Incremento log buffers
+-b 8192
+
+# Failure Mode: 1 (printk, print a failure message)
+-f 1
+
+# Si hay errores en la carga continuo con las reglas siguientes
+-c
+
+# Rate por segundo limitado
+# -r 1000
+
+# Config inmutable -- reboot para deshabilitar
+# -e 2
+
+# Control de files de audit y syslog
+-w /etc/audit/ -p wa -k ETC_AUDIT_WR
+-w /etc/libaudit.conf -p wa -k ETC_LIBAUDIT_CONF_WR
+-w /etc/audisp/ -p wa -k ETC_AUDISP_WR
+-w /etc/audit/auditd.conf  -p wa -k ETC_AUDIT_AUDITD_CONF_WR
+-w /etc/audit/audit.rules  -p wa -k ETC_AUDIT_AUDIT_RULES_WR
+-w /etc/audit/rules.d/ -p wa -k ETC_AUDIT_RULES_D_WR
+-w /etc/audit/rules.d/audit.rules -p wa -k ETC_AUDIT_RULES_D_AUDIT_RULES_WR
+-w /etc/rsyslog.conf -p wa -k ETC_RSYSLOG_CONF_WR
+-w /etc/rsyslog.d/ -p wa -k ETC_RSYSLOG_D_CONF_WR
+-w /etc/rsyslog.d/qradar.conf -p wa -k ETC_RSYSLOG_D_QRADAR_RSYSLOG_CONF_WR
+-w /usr/sbin/auditctl -p x -k auditctl_EXE
+-w /usr/sbin/auditd -p x -k auditd_EXE
+
+# Control de cron
+-w /etc/cron.allow -p wa -k ETC_CRON_ALLOW_WR
+-w /etc/cron.deny -p wa -k ETC_CRON_DENY_WR
+-w /var/spool/cron/crontabs/ -p wa -k CONTABS1_WR
+-w /var/spool/cron/crontabs/root -p wa -k CRONTAB_ROOT1_WR
+-w /var/spool/cron/ -p wa -k CONTABS2_WR
+-w /var/spool/cron/root -p wa -k CRONTAB_ROOT2_WR
+-w /etc/cron.d/ -p wa -k ETC_CRON_D_WR
+-w /etc/cron.daily/ -p wa -k ETC_CRON_DAILY_WR
+-w /etc/cron.hourly/ -p wa -k ETC_CRON_HOURLY_WR
+-w /etc/cron.monthly/ -p wa -k ETC_CRON_MONTHLY_WR
+-w /etc/cron.weekly/ -p wa -k ETC_CRON_WEEKLY_WR
+-w /etc/crontab -p wa -k ETC_CRONTAB_WR
+
+
+# Control de DB de seguridad del OS
+-w /etc/passwd -p wa -k ETC_PASSWD_WR
+-w /etc/gshadow -p wa -k ETC_GSHADOW_WR
+-w /etc/shadow -p wa -k ETC_SHADOW_WR
+-w /etc/security/opasswd -p wa -k ETC_SECURITY_OPASSWD_WR
+-w /etc/security/access.conf -p wa -k ETC_SECURITY_ACCESS_CONF_WR
+-w /etc/security/limits.conf -p wa -k ETC_SECURITY_LIMITS_CONF_WR
+-w /etc/security/pam_env.conf -p wa -k ETC_SECURITY_PAM_ENV_CONF_WR
+-w /etc/security/namespace.conf -p wa -k ETC_SECURITY_NAMESPACE_CONF_WR
+-w /etc/security/namespace.init -p wa -k ETC_SECURITY_NAMESPACE_INIT_WR
+-w /etc/login.defs -p wa -k ETC_LOGIN_DEFS_WR
+-w /etc/securetty -p wa -k ETC_SECURETTY_WR
+-w /etc/pam.d/ -p wa -k ETC_PAMD_WR
+-w /etc/pam.conf -p wa -k ETC_PAM_CONF_WR
+-w /etc/selinux/ -p wa -k ETC_SELINUX_WR
+
+# Control de ejecucion de comandos de ABM de objetos de seguridad
+-w /usr/bin/passwd -p x -k passwd_EXE
+-w /usr/sbin/groupdel -p x -k groupdel_EXE
+-w /usr/sbin/groupadd -p x -k groupadd_EXE
+-w /usr/sbin/groupmod -p x -k groupmod_EXE
+-w /usr/sbin/addgroup -p x -k addgroup_EXE
+-w /usr/sbin/userdel -p x -k userdel_EXE
+-w /usr/sbin/useradd -p x -k useradd_EXE
+-w /usr/sbin/usermod -p x -k usermod_EXE
+-w /usr/sbin/adduser -p x -k adduser_EXE
+
+# Control de SU y SUDO
+-w /usr/bin/su -p x -k su_EXE
+-w /usr/bin/sudo -p x -k sudo_EXE
+-w /etc/sudoers -p r -k ETC_SUDOERS_R
+-w /etc/sudoers -p wa -k ETC_SUDOERS_WR
+-w /etc/sudoers.d/ -p wa -k ETC_SUDOERS_D_WR
+
+# Control de archivos de configuracion adicionales
+-w /etc/hosts -p wa -k ETC_HOSTS_WR
+-w /etc/environment -p wa -k ETC_ENVIRONMENT_WR
+-w /etc/profile -p wa -k ETC_PROFILE_WR
+-w /etc/profile.d -p wa -k ETC_PROFILE_D_WR
+-w /etc/ftpusers -p wa -k ETC_FTPUSERS_WR
+-w /etc/inittab -p wa -k ETC_INITTAB_WR
+-w /etc/init.d/ -p wa -k ETC_INIT_D_WR
+-w /etc/init/ -p wa -k ETC_INIT_WR
+-w /etc/ld.so.conf -p wa -k ETC_LD_SO_CONF_WR
+-w /etc/localtime -p wa -k ETC_LOCALTIME_WR
+-w /etc/sysctl.conf -p wa -k ETC_SYSCTL_CONF_WR
+-w /etc/modprobe.conf -p wa -k ETC_MODPROBE_CONF_WR
+-w /etc/aliases -p wa -k ETC_ALIASES_WR
+-w /etc/postfix/ -p wa -k ETC_POSTFIX_WR
+-w /etc/issue -p wa -k ETC_ISSUE_WR
+-w /etc/issue.net -p wa -k ETC_ISSUE_NET_WR
+-w /etc/ssh/ssh_config -p wa  -k ETC_SSH_SSH_CONFIG_WR
+-w /etc/ssh/sshd_config -p wa  -k ETC_SSH_SSHD_CONFIG_WR
+-w /etc/hosts.equiv -p wa -k ETC_HOSTS_EQUIV_WR
+
+# Control de utilidades y comandos del sistema
+-w /usr/sbin/stunnel -p x -k stunnel_EXE
+-w /usr/sbin/shutdown -p x -k SHUTDOWN_EXE
+-w /usr/sbin/poweroff -p x -k POWEROFF_EXE
+-w /usr/sbin/reboot -p x -k REBOOT_EXE
+-w /usr/sbin/halt -p x -k HALT_EXE
+
+# Control de comandos de cambio de permisos
+-w /usr/bin/chown -p x -k chown_EXE
+-w /usr/bin/chmod -p x -k chmod_EXE
+-w /usr/bin/chgrp -p x -k chgrp_EXE
+
+# Control de files en home de root
+-w /root/.ssh/ -p wa -k ROOT_P_SSH_WR
+-w /root/.ssh/authorized_keys -p wa -k ROOT_P_SSH_AUTHORIZED_KEYS_WR
+-w /root/.rhosts -p wa -k ROOT_P_RHOSTS_WR
+-w /root/.profile -p wa -k ROOT_P_PROFILE_WR
+-w /root/.bash_profile -p wa -k ROOT_P_BASHPROFILE_WR
+-w /root/.bashrc -p wa -k ROOT_P_BASHRC_WR
+
+###SYSCALLS
+# Control de acceso a carpetas en las cuales haya fallado dicho intento (se va a descomentar en fases)
+#-a exit,always -F arch=b64 -S open -F dir=/etc -F success=0 -k unauthed_etc
+#-a exit,always -F arch=b64 -S open -F dir=/bin -F success=0 -k unauthed_bin
+#-a exit,always -F arch=b64 -S open -F dir=/sbin -F success=0 -k unauthed_sbin
+#-a exit,always -F arch=b64 -S open -F dir=/usr/bin -F success=0 -k unauthed_usr_bin
+#-a exit,always -F arch=b64 -S open -F dir=/usr/sbin -F success=0 -k unauthed_usr_sbin
+#-a exit,always -F arch=b64 -S open -F dir=/var -F success=0 -k unauthed_var
+#-a exit,always -F arch=b64 -S open -F dir=/home -F success=0 -k unauthed_home
+#-a exit,always -F arch=b64 -S open -F dir=/srv -F success=0 -k unauthed_srv
+
+# Control de archivos de devices
+#-a exit,always -F arch=b64 -S mknod -S mknodat -k SYSCALL_specialfiles
+# Control de cambio de nombre del equipo
+#-a exit,always -F arch=b64 -S mount -S umount2 -k SYSCALL_mount
+# Control de cambio de nombre del equipo
+#-a exit,always -F arch=b64 -S sethostname -k SYSCALL_hostname
+# Control de ajustes de tiempo (hora o dia)
+#-a exit,always -F arch=b64 -S adjtimex -S settimeofday -S clock_settime -k SYSCALL_time

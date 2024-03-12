@@ -1,0 +1,288 @@
+- name: "Server Info (Distribution/Version/ARQ)"
+  debug:
+    msg: "{{ ansible_distribution }}/{{ ansible_distribution_version }}/({{ ansible_architecture }})"
+
+- name: "Check conectivity {{ qradar_server_fqdn }}:{{ qradar_port }}"
+  wait_for:
+    host: "{{ qradar_server_fqdn }}"
+    port: "{{ qradar_port }}"
+    state: started
+    delay: 0
+    timeout: 1
+  register: qradar_tcp_connection
+
+- name: Delete old configuration of QRadar in main file (SLES)
+  lineinfile:
+    path   : "{{ syslog_path }}{{ syslog_file }}"
+    regexp : "{{ item }}"
+    state: absent
+  with_items:
+   - "qserver"
+   - "{{ qradar_server_fqdn }}:{{ qradar_port }}"
+   - "{{ qradar_server_ip }}:{{ qradar_port }}"
+   - "QRADAR"
+  when: (ansible_distribution == 'SLES') and qradar_tcp_connection
+
+- name: Delete old configuration of QRadar in main file (RedHat/CentOS)
+  lineinfile:
+    path   : "{{ rsyslog_path_file }}"
+    regexp : "{{ item }}"
+    state: absent
+  with_items:
+   - "{{ qradar_server_fqdn }}:{{ qradar_port }}"
+   - "{{ qradar_server_ip }}:{{ qradar_port }}"
+   - "QRADAR"
+  when: (ansible_distribution == 'RedHat' or ansible_distribution == 'CentOS') and qradar_tcp_connection
+
+- name: Delete old configuration of QRadar in main file Debian
+  lineinfile:
+    path   : "{{ rsyslog_path_file }}"
+    regexp : "{{ item }}"
+    state: absent
+  with_items:
+   - "{{ qradar_server_fqdn }}:{{ qradar_port }}"
+   - "{{ qradar_server_ip }}:{{ qradar_port }}"
+   - "QRADAR"
+  when: (ansible_distribution == 'Debian') and qradar_tcp_connection
+
+- name: Delete old configuration of QRadar in main file (Ubuntu)
+  lineinfile:
+    path   : "{{ rsyslog_path_file }}"
+    regexp : "{{ item }}"
+    state: absent
+  with_items:
+   - "auth,authpriv.*              @{{qradar_server_fqdn}}:{{qradar_port}}"
+   - ':rawmsg,contains,"audispd: "    @{{qradar_server_fqdn}}:{{qradar_port}}'
+   - "& ~"
+  when: ansible_distribution == 'Ubuntu' and qradar_tcp_connection
+
+- name: "Add QRadar config in syslog (SLES)"
+  blockinfile:
+    path: "{{ syslog_path }}{{ syslog_file }}"
+    block: |
+      filter f_auth { facility(auth, authpriv) ; };
+      filter f_useremerg   { level(emerg)  and facility(user); };
+      filter f_prg_audispd { program (audispd); };
+      destination qradar { tcp("{{ qradar_server_fqdn }}" port({{ qradar_port }})); };
+      log { source(src); filter(f_useremerg); filter(f_prg_audispd);   destination(qradar); };
+      log { source(src); filter(f_auth); destination(qradar); };
+    marker: "# {mark} CyberSecurity v1.0"
+  notify:
+  - restart syslog
+  when: (ansible_distribution == 'SLES') and qradar_tcp_connection
+
+- name: "Add QRadar config in syslog (Redhat/CentOS)"
+  template:
+    src: qradar_rsyslog.conf.j2
+    dest: "{{ rsyslogd_path }}{{ rsyslog_qradar_file }}"
+  notify:
+  - reload daemon
+  - restart rsyslog
+  when: (ansible_distribution == 'RedHat' or ansible_distribution == 'CentOS') and qradar_tcp_connection
+
+- name: "Add QRadar config in syslog Debian"
+  template:
+    src: qradar_rsyslog.conf.j2
+    dest: "{{ rsyslogd_path }}{{ rsyslog_qradar_file }}"
+  notify:
+  - reload daemon
+  - restart rsyslog
+  when: (ansible_distribution == 'Debian') and qradar_tcp_connection
+
+
+- name: "Add QRadar config in syslog (Ubuntu)"
+  template:
+    src: qradar_rsyslog_ubuntu.conf.j2
+    dest: "{{ rsyslogd_path }}{{ rsyslog_qradar_file }}"
+  notify:
+  - restart rsyslog
+  when: ansible_distribution == 'Ubuntu' and qradar_tcp_connection
+
+- name: Install audit
+  ansible.builtin.yum:
+    name: audit
+    state: latest
+  when: (ansible_distribution == 'RedHat' or ansible_distribution == 'CentOS') and (ansible_distribution_major_version == '7' or ansible_distribution_major_version == '8')
+
+
+- name: "Configure auditd.conf for rhel_7.1 ,2"
+  template:
+    src: auditd.conf_rhel_7.1_7.2.j2
+    dest: "{{ auditd_path }}{{ auditd_file }}"
+  when: (ansible_distribution == 'RedHat' or ansible_distribution == 'CentOS') and (ansible_distribution_version == '7.1' or ansible_distribution_version == '7.2')
+
+
+- name: "Configure auditd.conf for rhel_7.3"
+  template:
+    src: auditd.conf_rhel_7.3.j2
+    dest: "{{ auditd_path }}{{ auditd_file }}"
+  when: (ansible_distribution == 'RedHat' or ansible_distribution == 'CentOS') and ansible_distribution_version == '7.3'
+
+- name: "Configure auditd.conf for rhel_7.4"
+  template:
+    src: auditd.conf_rhel_7.4.j2
+    dest: "{{ auditd_path }}{{ auditd_file }}"
+  when: (ansible_distribution == 'RedHat' or ansible_distribution == 'CentOS') and ansible_distribution_version == '7.4'
+
+- name: "Configure auditd.conf for rhel_7.5 ,6,7,8,9"
+  template:
+    src: auditd.conf_rhel_7.5_7_9.j2
+    dest: "{{ auditd_path }}{{ auditd_file }}"
+  when: (ansible_distribution == 'RedHat' or ansible_distribution == 'CentOS') and (ansible_distribution_version == '7.5' or ansible_distribution_version == '7.6' or ansible_distribution_version == '7.7' or ansible_distribution_version == '7.8' or ansible_distribution_version == '7.9')
+
+- name: Install audispd-plugins rhel8
+  ansible.builtin.yum:
+    name: audispd-plugins
+    state: latest
+  when: (ansible_distribution == 'RedHat' or ansible_distribution == 'CentOS') and ansible_distribution_major_version == '8'
+
+- name: "Configure auditd.conf for rhel_8"
+  template:
+    src: auditd.conf_rhel_8.j2
+    dest: "{{ auditd_path }}{{ auditd_file }}"
+  when: (ansible_distribution == 'RedHat' or ansible_distribution == 'CentOS') and ansible_distribution_major_version == '8'
+
+- name: "Configure audit.rules"
+  template:
+    src: audit.rules.j2
+    dest: "{{ auditd_rulesd_path }}{{ auditd_rulesd_file }}"
+  notify:
+  - Enable auditd
+  - Stop auditd
+  - Start auditd
+  when: (ansible_distribution == 'RedHat' or ansible_distribution == 'CentOS') and (ansible_distribution_major_version == '7' or ansible_distribution_major_version == '8')
+
+- name:  "Configure syslog.conf rhel 7"
+  template:
+    src: syslog.conf.j2
+    dest: "{{ auditsp_path }}{{ auditsp_file }}"
+  notify:
+  - reload daemon
+  - restart rsyslog
+  when: (ansible_distribution == 'RedHat' or ansible_distribution == 'CentOS') and ansible_distribution_major_version == '7'
+
+- name:  "Configure syslog.conf rhel 8"
+  template:
+    src: syslog.conf_rhel_8.j2
+    dest: "/etc/audit/plugins.d/{{ auditsp_file }}"
+  notify:
+  - reload daemon
+  - restart rsyslog
+  when: (ansible_distribution == 'RedHat' or ansible_distribution == 'CentOS') and ansible_distribution_major_version == '8'
+
+- name: find local6.none in /etc/rsyslog.conf
+  shell: "grep -i 'local6.none' /etc/rsyslog.conf"
+  register: check_local6
+  ignore_errors: true
+  when: (ansible_distribution == 'RedHat' or ansible_distribution == 'CentOS') and (ansible_distribution_major_version == '7' or ansible_distribution_major_version == '8')
+
+- name: add local6.none in /etc/rsyslog.conf
+  replace:
+    path: /etc/rsyslog.conf
+    regexp: 'cron.none'
+    replace: "cron.none;local6.none"
+  ignore_errors: true
+  notify:
+  - reload daemon
+  - restart rsyslog
+  when: check_local6.stdout == "" and (ansible_distribution == 'RedHat' or ansible_distribution == 'CentOS') and (ansible_distribution_major_version == '7' or ansible_distribution_major_version == '8')
+
+- name: Install audit in ubuntu
+  ansible.builtin.yum:
+    name: auditd
+    state: latest
+  when: ansible_distribution == 'Ubuntu' and (ansible_distribution_major_version == '12' or ansible_distribution_major_version == '14' or  ansible_distribution_major_version == '16' or  ansible_distribution_major_version == '18' or  ansible_distribution_major_version == '20' or  ansible_distribution_major_version == '22')
+
+- name: Install audispd-plugins ubuntu
+  ansible.builtin.yum:
+    name: audispd-plugins
+    state: latest
+  when: ansible_distribution == 'Ubuntu' and (ansible_distribution_major_version == '12' or ansible_distribution_major_version == '14' or ansible_distribution_major_version == '16' or  ansible_distribution_major_version == '18' or  ansible_distribution_major_version == '20' or  ansible_distribution_major_version == '22')
+
+- name: "Configure auditd.conf for ubuntu"
+  template:
+    src: auditd.conf_ubuntu_12_14.j2
+    dest: "{{ auditd_path }}{{ auditd_file }}"
+  notify:
+  - Enable auditd
+  - Stop auditd
+  - Start auditd
+  when:  ansible_distribution == 'Ubuntu' and (ansible_distribution_major_version == '12' or ansible_distribution_major_version == '14' or ansible_distribution_major_version == '16' or  ansible_distribution_major_version == '18' or  ansible_distribution_major_version == '20' or  ansible_distribution_major_version == '22')
+
+- name: "Configure audit.rules ubuntu"
+  template:
+    src: audit.rules-ubuntu_12_14.j2
+    dest: "{{ auditd_rulesd_path }}{{ auditd_rulesd_file }}"
+  notify:
+  - Enable auditd
+  - Stop auditd
+  - Start auditd
+  when: ansible_distribution == 'Ubuntu' and (ansible_distribution_major_version == '12' or ansible_distribution_major_version == '14' or  ansible_distribution_major_version == '16' or  ansible_distribution_major_version == '18' or  ansible_distribution_major_version == '20' or  ansible_distribution_major_version == '22') 
+
+- name:  "Configure syslog.conf ubuntu"
+  template:
+    src: syslog.conf_ubuntu_12_14.j2
+    dest: "{{ auditsp_path }}{{ auditsp_file }}"
+  notify:
+  - reload daemon
+  - restart rsyslog
+  when:  ansible_distribution == 'Ubuntu' and (ansible_distribution_major_version == '12' or ansible_distribution_major_version == '14' or  ansible_distribution_major_version == '16' or  ansible_distribution_major_version == '18' or  ansible_distribution_major_version == '20' or  ansible_distribution_major_version == '22')
+
+- name: Install audit in SLES
+  ansible.builtin.yum:
+    name: audit
+    state: latest
+  when: (ansible_distribution == 'SLES')
+
+- name: change the value of AUDITD_DISABLE_CONTEXTS from "yes" to "no"
+  lineinfile:
+    path:  /etc/sysconfig/auditd
+    regexp: '^AUDITD_DISABLE_CONTEXTS='
+    line: 'AUDITD_DISABLE_CONTEXTS="no"'
+  notify:
+  - Enable auditd
+  - Stop auditd
+  - Start auditd
+  when: (ansible_distribution == 'SLES')
+
+- name: "Configure auditd.conf in SLES"
+  template:
+    src: auditd.conf_suse.j2
+    dest: /etc/audit/auditd.conf
+  notify:
+  - Enable auditd
+  - Stop auditd
+  - Start auditd
+  when: (ansible_distribution == 'SLES')
+
+
+- name: "Configure audit.rules in SLES"
+  template:
+    src: audit.rules-suse.j2
+    dest: /etc/audit/audit.rules
+  notify:
+  - Enable auditd
+  - Stop auditd
+  - Start auditd
+  when: (ansible_distribution == 'SLES')
+
+- name:  "Configure syslog.conf in SLES"
+  template:
+    src: syslog.conf_suse.j2
+    dest: "{{ auditsp_path }}{{ auditsp_file }}"
+  notify:
+  - restart syslog
+  when: (ansible_distribution == 'SLES')
+
+- name: change f_messages in {{ syslog_path }}{{ syslog_file }}
+  replace:
+    path:   "{{ syslog_path }}{{ syslog_file }}"
+    regexp: '^filter f_messages.*$'
+    replace: "filter f_messages   { not facility(news, mail) and not filter(f_iptables) and not filter(f_prg_audispd); };"
+  ignore_errors: true
+  notify:
+  - restart syslog
+  when: (ansible_distribution == 'SLES')
+  notify:
+  - restart syslog
+  when: (ansible_distribution == 'SLES')

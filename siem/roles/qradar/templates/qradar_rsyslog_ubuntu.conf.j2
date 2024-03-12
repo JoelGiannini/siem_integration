@@ -1,0 +1,6 @@
+###################
+## CyberSecurity ##
+###################
+auth,authpriv.*              @@{{qradar_server_fqdn}}:{{qradar_port}}
+:rawmsg,contains,"audispd: "	@@{{qradar_server_fqdn}}:{{qradar_port}}
+& ~

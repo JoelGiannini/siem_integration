@@ -1,0 +1,12 @@
+- name: restart syslog
+  service: name=syslog state=restarted
+- name: restart rsyslog
+  service: name=rsyslog state=restarted
+- name: Enable auditd
+  service: name=auditd enabled=yes
+- name: Stop auditd
+  command: service auditd stop
+- name: Start auditd
+  service: name=auditd state=started
+- name: reload daemon
+  shell: systemctl daemon-reload
